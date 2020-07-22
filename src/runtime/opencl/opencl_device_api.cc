@@ -20,6 +20,9 @@
 /*!
  * \file opencl_device_api.cc
  */
+#define CL_TARGET_OPENCL_VERSION 120
+#define CL_HPP_TARGET_OPENCL_VERSION 120
+
 #include <dmlc/thread_local.h>
 #include <tvm/runtime/registry.h>
 
@@ -246,6 +249,10 @@ void OpenCLWorkspace::Init(const std::string& type_key, const std::string& devic
       continue;
     }
     std::vector<cl_device_id> devices_matched = cl::GetDeviceIDs(platform_id, device_type);
+    if ((devices_matched.size() == 0) && (device_type == "accelerator")) {
+      LOG(WARNING) << "Using GPU OpenCL device";
+      devices_matched = cl::GetDeviceIDs(platform_id, "gpu");
+    }
     if ((devices_matched.size() == 0) && (device_type == "gpu")) {
       LOG(WARNING) << "Using CPU OpenCL device";
       devices_matched = cl::GetDeviceIDs(platform_id, "cpu");

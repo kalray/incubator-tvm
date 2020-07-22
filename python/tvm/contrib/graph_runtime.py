@@ -110,7 +110,6 @@ def get_device_ctx(libmod, ctx):
         raise ValueError("Either all or none of the contexts should be rpc.")
     return ctx, num_rpc_ctx, device_type_id
 
-
 class GraphModule(object):
     """Wrapper runtime module.
 

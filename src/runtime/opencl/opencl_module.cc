@@ -20,6 +20,9 @@
 /*!
  * \file opencl_module.cc
  */
+#define CL_TARGET_OPENCL_VERSION 120
+#define CL_HPP_TARGET_OPENCL_VERSION 120
+
 #include "opencl_module.h"
 
 #include <dmlc/memory_io.h>
@@ -228,6 +231,7 @@ cl_kernel OpenCLModuleNode::InstallKernel(cl::OpenCLWorkspace* w, cl::OpenCLThre
   t->kernel_table[e.kernel_id].kernel = kernel;
   t->kernel_table[e.kernel_id].version = e.version;
   kernels_.push_back(kernel);
+
   return kernel;
 }
 

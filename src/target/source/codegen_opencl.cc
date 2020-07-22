@@ -291,7 +291,7 @@ runtime::Module BuildOpenCL(IRModule mod, Target target) {
     auto f = Downcast<PrimFunc>(kv.second);
     auto calling_conv = f->GetAttr<Integer>(tvm::attr::kCallingConv);
     ICHECK(calling_conv == CallingConv::kDeviceKernelLaunch)
-        << "CodeGenOpenCL: expect calling_conv equals CallingConv::kDeviceKernelLaunch";
+        << "CodeGenOpenCL: expect calling_conv equals CallingConv::kDeviceKernelLaunch, found: " + calling_conv.value());
     cg.AddFunction(f);
   }
 

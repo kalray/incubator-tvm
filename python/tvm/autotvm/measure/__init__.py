@@ -23,6 +23,7 @@ from .measure import (
     measure_option,
     create_measure_batch,
 )
-from .measure_methods import LocalBuilder, LocalRunner, RPCRunner, request_remote
+from .measure_methods import LocalBuilder, LocalRunner, RPCRunner, request_remote, KLocalRunner, KLocalBuilder
 from .executor import Executor
 from .local_executor import LocalExecutor
+from .klocal_executor import KLocalExecutor

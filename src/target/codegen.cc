@@ -42,6 +42,7 @@ namespace tvm {
 namespace codegen {
 
 runtime::Module Build(IRModule mod, Target target) {
+  std::cerr << "Codegen for target: " + target->id->name + "\n";
   if (transform::PassContext::Current()
           ->GetConfig<Bool>("tir.disable_assert", Bool(false))
           .value()) {

@@ -41,7 +41,6 @@ def _update_target(target):
     target = target if target else Target.current()
     if target is None:
         raise ValueError("Target is not set in env or passed as argument.")
-
     tgts = {}
     if isinstance(target, (str, Target)):
         dev_type = tvm_expr.IntImm("int32", _nd.context(str(target)).device_type)
@@ -124,6 +123,8 @@ class BuildModule(object):
         if params:
             self._set_params(params)
         # Build the IR module
+        print("Target envoyé: ", target)
+        print("Taret hote envoyé: ", target_host)
         self._build(mod, target, target_host)
         # Get artifacts
         graph_json = self.get_json()

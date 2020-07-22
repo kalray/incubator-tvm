@@ -304,15 +304,17 @@ class RelayBuildModule : public runtime::ModuleNode {
     pass_seqs.push_back(transform::FoldConstant());
 
     // Create a sequential pass and perform optimizations.
+    std::cerr << "Avant appli optis, nb targets: " + std::to_string(targets.size()) +"\n";
     transform::Pass seq = transform::Sequential(pass_seqs);
     if (targets.size() == 1) {
       const auto& it = targets.begin();
       With<Target> tctx((*it).second);
+      std::cerr << "Target en contexte: " << (*it).second->str() <<"\n";
       relay_module = seq(relay_module);
     } else {
       relay_module = seq(relay_module);
     }
-
+    std::cerr << "Apres appli optis\n";
     // Handle heterogeneous compilation.
     transform::PassContext pass_ctx = PassContext::Current();
     if (targets_.size() > 1) {
@@ -430,6 +432,7 @@ class RelayBuildModule : public runtime::ModuleNode {
                   const std::unordered_map<std::string, tvm::runtime::NDArray>& params) {
     // Relay IRModule -> IRModule optimizations.
     relay_module = Optimize(relay_module, targets_, params);
+    std::cerr << "Post opti\n";
     // Get the updated function.
     auto func = Downcast<Function>(relay_module->Lookup("main"));
 
@@ -437,8 +440,8 @@ class RelayBuildModule : public runtime::ModuleNode {
     graph_codegen_ = std::unique_ptr<GraphCodegen>(new GraphCodegen());
     graph_codegen_->Init(nullptr, targets_);
     graph_codegen_->Codegen(func);
-
     ret_.graph_json = graph_codegen_->GetJSON();
+
     ret_.params = graph_codegen_->GetParams();
 
     auto lowered_funcs = graph_codegen_->GetIRModule();
@@ -463,7 +466,12 @@ class RelayBuildModule : public runtime::ModuleNode {
         ret_.mod = tvm::codegen::CSourceModuleCreate(";", "");
       }
     } else {
+      fprintf( stderr, "Building...\n");
+      for (const auto& x : lowered_funcs) {
+        std::cerr << "--> "+ x.first + "\n" ;
+      }
       ret_.mod = tvm::build(lowered_funcs, target_host_);
+      fprintf( stderr, "Build successful!\n");
     }
 
     Array<tvm::runtime::Module> ext_mods = graph_codegen_->GetExternalModules();

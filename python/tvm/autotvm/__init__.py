@@ -46,6 +46,8 @@ from .measure import (
     LocalBuilder,
     LocalRunner,
     RPCRunner,
+    KLocalRunner,
+    KLocalBuilder,
 )
 from .tuner import callback
 from .task import (

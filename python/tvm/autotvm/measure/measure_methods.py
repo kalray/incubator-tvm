@@ -47,11 +47,10 @@ from ..task.space import InstantiationError
 
 from .measure import MeasureResult, MeasureErrorNo, Builder, Runner
 from .local_executor import LocalExecutor
+from .klocal_executor import KLocalExecutor
+logger = logging.getLogger('autotvm')
 
-logger = logging.getLogger("autotvm")
-
-
-class BuildResult(namedtuple("BuildResult", ("filename", "arg_info", "error", "time_cost"))):
+class BuildResult(namedtuple("BuildResult", ('filename', 'arg_info', 'error', 'time_cost'))):
     """
     Stores all the necessary inputs for a measurement.
 
@@ -286,11 +285,11 @@ class RPCRunner(Runner):
                 "max_thread_y": max_dims[1],
                 "max_thread_z": max_dims[2],
             }
-
-            if "cuda" in self.task.target.keys:
-                kwargs["cuda_arch"] = "sm_" + "".join(ctx.compute_version.split("."))
-        if self.task.target.device_name == "micro_dev":
-            kwargs.setdefault("build_option", {})["tir.disable_vectorize"] = True
+            print('kwargs: ',kwargs['check_gpu'])
+            if 'cuda' in self.task.target.keys:
+                kwargs["cuda_arch"] = "sm_" + "".join(ctx.compute_version.split('.'))
+        if self.task.target.device_name == 'micro_dev':
+            kwargs.setdefault('build_option', {})['tir.disable_vectorize'] = True
 
         return kwargs
 
@@ -608,7 +607,6 @@ def run_through_rpc(
             ctx.sync()
 
         costs = time_f(*args).results
-
         # clean up remote files
         remote.remove(build_result.filename)
         remote.remove(os.path.splitext(build_result.filename)[0] + ".so")
@@ -627,6 +625,7 @@ def run_through_rpc(
                     errno = MeasureErrorNo.WRONG_ANSWER
     except TVMError as exc:
         msg = str(exc)
+        print("Exception message: ", msg)
         if "Stack trace returned" in msg:
             msg = msg[: msg.index("Stack trace returned")]
         if "CUDA Source" in msg:
@@ -748,3 +747,306 @@ def gpu_verify_pass(**kwargs):
         return f
 
     return tvm.tir.transform.prim_func_pass(verify_pass, opt_level=0)
+
+
+class KLocalBuilder(LocalBuilder):
+    """Run compilation on local machine in a separated thread.
+    Less effective than LocalBuilder but made for environments that don't support
+    multiprocess device interactions.
+
+    Parameters
+    ----------
+    timeout: float
+        The timeout of a compilation
+    build_func: callable or str
+        If is 'default', use default build function
+        If is 'ndk', use function for android ndk
+        If is callable, use it as custom build function, expect lib_format field.
+    """
+    def __init__(self, timeout=10, build_func='default'):
+        super(KLocalBuilder, self).__init__(timeout, 1, build_func)
+        self.executor = KLocalExecutor(timeout=timeout)
+
+    def build(self, measure_inputs):
+        results = []
+
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+        self.tmp_dir = tempfile.mkdtemp()
+
+        for i in range(0, len(measure_inputs), self.n_parallel):
+            futures = []
+            for inp in measure_inputs[i:i + self.n_parallel]:
+                ret = self.executor.submit(self.build_func,
+                                           str(inp.target),
+                                           inp,
+                                           self.tmp_dir,
+                                           **self.build_kwargs)
+                futures.append(ret)
+
+            for future in futures:
+                res = future.get()
+
+                if isinstance(res, Exception):
+                    # timeout or fleet error, return MeasureResult directly
+                    results.append(MeasureResult((res,), MeasureErrorNo.BUILD_TIMEOUT,
+                                                 self.timeout, time.time()))
+                elif res.error is not None:
+                    # instantiation error
+                    if isinstance(res.error, InstantiationError):
+                        results.append(MeasureResult((res.error,),
+                                                     MeasureErrorNo.INSTANTIATION_ERROR,
+                                                     res.time_cost, time.time()))
+                    else:
+                        if "InstantiationError" in str(res.error):
+                            msg = str(res.error)
+                            try:
+                                msg = msg.split('\n')[-2].split(": ")[1]
+                            except Exception:  # pylint: disable=broad-except
+                                pass
+                            results.append(MeasureResult((InstantiationError(msg),),
+                                                         MeasureErrorNo.INSTANTIATION_ERROR,
+                                                         res.time_cost, time.time()))
+                        else:  # tvm error
+                            results.append(MeasureResult((res.error,),
+                                                         MeasureErrorNo.COMPILE_HOST,
+                                                         res.time_cost, time.time()))
+                else:
+                    # return BuildResult
+                    results.append(res)
+
+        return results
+
+
+class KLocalRunner(Runner):
+    """Run generated code on local devices.
+
+    Parameters
+    ----------
+    timeout: float
+        The timeout of a compilation
+    n_parallel: int
+        The number of tasks run in parallel. "None" will use all cpu cores
+    number: int
+        The number of times to run the generated code for taking average.
+        We call these runs as one `repeat` of measurement.
+    repeat : int, optional
+        The number of times to repeat the measurement.
+        In total, the generated code will be run (1 + number x repeat) times,
+        where the first "1" is warm up and will be discarded.
+        The returned result contains `repeat` costs,
+        each of which is an average of `number` costs.
+    min_repeat_ms: int, optional
+        The minimum duration of one `repeat` in milliseconds.
+        By default, one `repeat` contains `number` runs. If this parameter is set,
+        the parameters `number` will be dynamically adjusted to meet the
+        minimum duration requirement of one `repeat`.
+        i.e., When the run time of one `repeat` falls below this time, the `number` parameter
+        will be automatically increased.
+    cooldown_interval: float, optional
+        The cool down interval between two measurements.
+    check_correctness: bool, optional
+        Whether check correctness after measurement. This will use llvm cpu target to
+        call your template and get the reference output.
+        This can work for TOPI templates, but may not work for your custom template.
+
+    Notes
+    -----
+    This is a true local runner disigned to run on a ingle process, contrary to LocalRunner that
+    emulates locality through RPC and uses a tracker on another process.
+    """
+    def __init__(self,
+                 timeout=10, n_parallel=1,
+                 number=4, repeat=3, min_repeat_ms=0, cooldown_interval=0.1,
+                 check_correctness=False):
+        super(KLocalRunner, self).__init__(timeout, n_parallel)
+
+        self.timeout = timeout
+
+        self.number = number
+        self.repeat = repeat
+        self.min_repeat_ms = min_repeat_ms
+
+        self.ref_input = None
+        self.ref_output = None
+        self.check_correctness = check_correctness
+        self.cooldown_interval = cooldown_interval
+
+        self.executor = KLocalExecutor(timeout=timeout, do_fork=False)
+        self.target = None
+
+    def set_task(self, task):
+        self.task = task
+        self.target = str(task.target)
+
+
+        #FIXME ignored for now
+        if self.check_correctness:
+            raise NotImplementedError()
+            """
+            # use llvm cpu to generate a reference input/output
+            # this option works for tuning topi, but might not work for you custom op
+            with _target.create("llvm"):
+                s, arg_bufs = task.instantiate(task.config_space.get(0))
+            self.ref_input = [np.random.uniform(size=get_const_tuple(x.shape)).astype(x.dtype)
+                              for x in arg_bufs]
+            func = build(s, arg_bufs, "llvm")
+            tvm_buf = [nd.array(x) for x in self.ref_input]
+            func(*tvm_buf)
+            self.ref_output = [x.asnumpy() for x in tvm_buf]
+            """
+
+    def get_build_kwargs(self):
+        kwargs = {}
+        if 'cuda' in self.task.target.keys or 'opencl' in self.task.target.keys or \
+           'rocm' in self.task.target.keys or 'vulkan' in self.task.target.keys:
+            """
+            ctx = tvm.context(self.target)
+            max_dims = ctx.max_thread_dimensions
+            kwargs['check_gpu'] = {
+                'max_shared_memory_per_block': ctx.max_shared_memory_per_block,
+                'max_threads_per_block': ctx.max_threads_per_block,
+                'max_thread_x': max_dims[0],
+                'max_thread_y': max_dims[1],
+                'max_thread_z': max_dims[2],
+            }
+            """
+            #Tentative darnaque pour ne pas init l'opencl
+            kwargs['check_gpu'] = {
+                'max_shared_memory_per_block': 65536,
+                'max_threads_per_block': 1024,
+                'max_thread_x': 1024,
+                'max_thread_y': 1024,
+                'max_thread_z': 1024,
+            }
+
+            print(kwargs['check_gpu'])
+            if 'cuda' in self.task.target.keys: #FIXME Unverified
+                kwargs["cuda_arch"] = "sm_" + "".join(ctx.compute_version.split('.'))
+        if self.task.target.device_name == 'micro_dev':
+            kwargs.setdefault('build_option', {})['tir.disable_vectorize'] = True
+        return kwargs
+
+    def run(self, measure_inputs, build_results):
+        results = []
+
+        for i in range(0, len(measure_inputs), self.n_parallel):
+            futures = []
+            for measure_inp, build_res in zip(measure_inputs[i:i+self.n_parallel],
+                                              build_results[i:i+self.n_parallel]):
+
+                ret = self.executor.submit(k_run_localy,
+                                           self.target,
+                                           measure_inp,
+                                           build_res,
+                                           self.number,
+                                           self.repeat,
+                                           self.min_repeat_ms,
+                                           self.cooldown_interval,
+                                           self.ref_input,
+                                           self.ref_output)
+                futures.append(ret)
+
+            for future in futures:
+                res = future.get()
+                if isinstance(res, Exception):   # executor error or timeout
+                    results.append(MeasureResult((str(res),), MeasureErrorNo.RUN_TIMEOUT,
+                                                 self.timeout, time.time()))
+                else:
+                    results.append(res)
+
+        return results
+def k_run_localy(ctx, measure_input, build_result,
+                    number, repeat, min_repeat_ms, cooldown_interval,
+                    ref_input=None, ref_output=None):
+    """Run a generated library localy
+
+    Parameters
+    ----------
+    measure_input: MeasureInput
+        The raw measure input
+    build_result: BuildResult
+        The result returned from Builder. This contains the path to the generated library.
+    number: int
+        The number of times to run the generated code for taking average.
+        We call these runs as one `repeat` of measurement.
+    repeat : int, optional
+        The number of times to repeat the measurement.
+        In total, the generated code will be run (1 + number x repeat) times,
+        where the first one is warm up and will be discarded.
+        The returned result contains `repeat` costs,
+        each of which is an average of `number` costs.
+    min_repeat_ms: int, optional
+        The minimum duration of one `repeat` in milliseconds.
+        By default, one `repeat` contains `number` runs. If this parameter is set,
+        the parameters `number` will be dynamically adjusted to meet the
+        minimum duration requirement of one `repeat`.
+        i.e., When the run time of one `repeat` falls below this time, the `number` parameter
+        will be automatically increased.
+    cooldown_interval: float
+        The cool down interval between two measurements
+    klocal_args: Tuple
+        The argument for local context
+    ref_input: List of np.ndarray
+        The reference input used for checking correctness
+    ref_output: List of np.ndarray
+        The reference output used for checking correctness
+    """
+    if isinstance(build_result, MeasureResult):
+        return build_result
+
+    tic = time.time()
+    errno = MeasureErrorNo.NO_ERROR
+    try:
+        # Program the FPGA every single time when targeting VTA
+        if hasattr(measure_input.target, 'device_name') and \
+            measure_input.target.device_name == 'vta':
+            #FIXME ignored for now
+            raise NotImplementedError()
+            """
+            # pylint: disable=import-outside-toplevel
+            from vta import program_fpga, reconfig_runtime
+            program_fpga(remote, None)
+            reconfig_runtime(remote)
+            """
+        print("Loading: ", build_result.filename)
+        func = tvm.runtime.load_module(build_result.filename)
+        print("Loaded. Evaluating...")
+        time_f = func.time_evaluator(
+            func.entry_name, ctx, number=number, repeat=repeat, min_repeat_ms=min_repeat_ms)
+        print("Evaluator generated")
+        # set input
+        if ref_input:
+            args = [nd.array(x, ctx=ctx) for x in ref_input]
+        else:
+            # create empty arrays on the remote device and copy them once.
+            # This can avoid some memory issues that make the measurement results unreliable.
+            args = [nd.empty(x[0], dtype=x[1], ctx=ctx) for x in build_result.arg_info]
+            args = [nd.array(x, ctx=ctx) for x in args]
+            print("args set, syncing...")
+            ctx.sync() #Unsure FIXME
+        print("Obtaining results...")
+        costs = time_f(*args).results
+        print("...Success!")
+        if len(costs) > 2:  # remove largest and smallest value to reduce variance
+            costs = list(costs)
+            costs.sort()
+            costs = tuple(costs[1:-1])
+
+        # check correctness of output
+        if ref_output:
+            raise NotImplementedError()
+            for expected, real in zip(ref_output, args):
+                if not np.allclose(expected, real.asnumpy(), rtol=1e-4):
+                    logger.warning("Wrong Answer!")
+                    errno = MeasureErrorNo.WRONG_ANSWER
+    except TVMError as exc:
+        msg = str(exc)
+        if "Stack trace returned" in msg:
+            msg = msg[:msg.index("Stack trace returned")]
+        if "CUDA Source" in msg:
+            msg = msg[:msg.index("CUDA Source")]
+        costs = (RuntimeError(msg[:1024]),)
+        errno = MeasureErrorNo.RUNTIME_DEVICE
+    tstamp = time.time()
+    time.sleep(cooldown_interval)
+    return MeasureResult(costs, errno, tstamp - tic + build_result.time_cost, tstamp)

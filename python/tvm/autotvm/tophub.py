@@ -148,7 +148,9 @@ def check_backend(tophub_location, backend):
     package_name = "%s_%s.log" % (backend, version)
     if os.path.isfile(os.path.join(AUTOTVM_TOPHUB_ROOT_PATH, package_name)):
         return True
-
+    logging.warning("Not downloading tophub package for %s", backend)
+    return False
+    """
     # pylint: disable=import-outside-toplevel
     if sys.version_info >= (3,):
         import urllib.request as urllib2
@@ -160,6 +162,7 @@ def check_backend(tophub_location, backend):
     except urllib2.URLError as e:
         logging.warning("Failed to download tophub package for %s: %s", backend, e)
         return False
+    """
 
 
 def download_package(tophub_location, package_name):
@@ -219,7 +222,8 @@ def load_reference_log(backend, model, workload_name):
         # If TOPHUB_LOCATION is not AUTOTVM_TOPHUB_NONE_LOC,
         # Download the config file from tophub if not exists.
         if not os.path.exists(filename):
-            tophub_location = _get_tophub_location()
+            tophub_location = AUTOTVM_TOPHUB_NONE_LOC
+            #tophub_location = _get_tophub_location()
             if tophub_location != AUTOTVM_TOPHUB_NONE_LOC:
                 download_package(tophub_location, package_name)
         if os.path.isfile(filename):  # in case download failed
