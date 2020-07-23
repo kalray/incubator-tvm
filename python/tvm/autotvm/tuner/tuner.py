@@ -26,9 +26,8 @@ from ..util import format_si_prefix
 
 from ..env import GLOBAL_SCOPE
 
-logger = logging.getLogger("autotvm")
-
-
+logger = logging.getLogger('autotvm')
+logger.setLevel(logging.DEBUG)
 class Tuner(object):
     """Base class for tuners
 

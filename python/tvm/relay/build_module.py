@@ -123,8 +123,6 @@ class BuildModule(object):
         if params:
             self._set_params(params)
         # Build the IR module
-        print("Target envoyé: ", target)
-        print("Taret hote envoyé: ", target_host)
         self._build(mod, target, target_host)
         # Get artifacts
         graph_json = self.get_json()

@@ -225,8 +225,9 @@ def load_reference_log(backend, model, workload_name):
             tophub_location = AUTOTVM_TOPHUB_NONE_LOC
             #tophub_location = _get_tophub_location()
             if tophub_location != AUTOTVM_TOPHUB_NONE_LOC:
-                download_package(tophub_location, package_name)
-        if os.path.isfile(filename):  # in case download failed
+                pass
+                #FIXME download_package(tophub_location, package_name)
+        if os.path.isfile(filename): # in case download failed
             find = False
             inp = None
             counts = {}

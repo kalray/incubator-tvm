@@ -304,17 +304,14 @@ class RelayBuildModule : public runtime::ModuleNode {
     pass_seqs.push_back(transform::FoldConstant());
 
     // Create a sequential pass and perform optimizations.
-    std::cerr << "Avant appli optis, nb targets: " + std::to_string(targets.size()) +"\n";
     transform::Pass seq = transform::Sequential(pass_seqs);
     if (targets.size() == 1) {
       const auto& it = targets.begin();
       With<Target> tctx((*it).second);
-      std::cerr << "Target en contexte: " << (*it).second->str() <<"\n";
       relay_module = seq(relay_module);
     } else {
       relay_module = seq(relay_module);
     }
-    std::cerr << "Apres appli optis\n";
     // Handle heterogeneous compilation.
     transform::PassContext pass_ctx = PassContext::Current();
     if (targets_.size() > 1) {
@@ -432,7 +429,6 @@ class RelayBuildModule : public runtime::ModuleNode {
                   const std::unordered_map<std::string, tvm::runtime::NDArray>& params) {
     // Relay IRModule -> IRModule optimizations.
     relay_module = Optimize(relay_module, targets_, params);
-    std::cerr << "Post opti\n";
     // Get the updated function.
     auto func = Downcast<Function>(relay_module->Lookup("main"));
 
