@@ -263,7 +263,7 @@ def create_measure_batch(task, option):
 
     def measure_batch(measure_inputs):
         build_results = builder.build(measure_inputs)
-        results = None#runner.run(measure_inputs, build_results)
+        results = runner.run(measure_inputs, build_results)
         return results
 
     measure_batch.n_parallel = builder.n_parallel

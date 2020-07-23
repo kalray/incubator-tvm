@@ -429,7 +429,6 @@ def _build_func_common(measure_input, check_gpu=None, cuda_arch=None, build_opti
     target, task, config = measure_input
     with target:
         s, args = task.instantiate(config)
-
         # check invalidity of template and code hash consistency
         if not config.valid():
             raise InstantiationError(config.errors)
@@ -502,6 +501,17 @@ class _WrappedBuildFunc:
             return BuildResult(None, None, e, time.time() - tic)
         return BuildResult(filename, arg_info, None, time.time() - tic)
 
+class _KWrappedBuildFunc(_WrappedBuildFunc):
+    """
+    Simple adapter of _WrappedBuildFunc to accept calls with context
+    passed as argument.
+    For now just discard it as build does not needs it contrary to run
+    """
+    def __call__(self, ctx, measure_input, tmp_dir, **kwargs):
+        """
+        Calls the super's method without ctx
+        """
+        return super(_KWrappedBuildFunc, self).__call__(measure_input, tmp_dir, **kwargs)
 
 def run_through_rpc(
     measure_input,
@@ -765,7 +775,15 @@ class KLocalBuilder(LocalBuilder):
     """
     def __init__(self, timeout=10, build_func='default'):
         super(KLocalBuilder, self).__init__(timeout, 1, build_func)
+        if isinstance(build_func, str):
+            if build_func == 'default':
+                build_func = tar.tar
+            elif build_func == 'ndk':
+                build_func = ndk.create_shared
+            else:
+                raise ValueError("Invalid build_func" + build_func)
         self.executor = KLocalExecutor(timeout=timeout)
+        self.build_func = _KWrappedBuildFunc(build_func)
 
     def build(self, measure_inputs):
         results = []

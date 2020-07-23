@@ -17,7 +17,7 @@ except ImportError:
 
 from . import executor
 from . import local_executor
-from .local_executor import LocalExecutor, kill_child_processes, LocalFuture
+from .local_executor import LocalExecutor, kill_child_processes
 
 
 def _kexecute_func(func, queue, target, args, kwargs):
@@ -36,6 +36,7 @@ def kcall_with_timeout(queue, timeout, func, target, args, kwargs):
     """A wrapper to support timeout of a function call"""
     # start a new process for timeout (cannot use thread because we have c function)
     p = Process(target=_kexecute_func, args=(func, queue, target, args, kwargs))
+    print("\nProcess created: ", p.name)
     p.start()
     p.join(timeout=timeout)
 
@@ -44,13 +45,46 @@ def kcall_with_timeout(queue, timeout, func, target, args, kwargs):
     kill_child_processes(p.pid)
     p.terminate()
     p.join()
+    print("Process destroyed: ", p.name, "\n")
 
 
+class KLocalFuture(executor.Future):
+    """Local wrapper for the future
+    Similar to LocalFuture but takes a result queue for init.
+    Used for KLocalExecutor where there is only one fork for timeout.
+
+    Parameters
+    ----------
+    queue: multiprocessing.Queue
+        queue that receivied the result of the task
+    """
+    def __init__(self, queue):
+        self._queue = queue
+        self.res = None
+    def done(self):
+        return True
+
+    def get(self, timeout=None):
+        if self.res is None:
+
+            try:
+                res = self._queue.get(block=True, timeout=timeout)
+                self.res = res
+            except Empty:
+                raise executor.TimeoutError()
+            self._queue.close()
+            self._queue.join_thread()
+            del self._queue
+            print("res queue: ", res)
+            return res
+        else:
+            return self.res
 
 
 class KLocalExecutor(LocalExecutor):
     """Local executor that runs workers on the same machine with multiprocessing
-    but the initialisation is done in the measured
+    but the initialisation is done in the measured process and is guaranted that
+    only one working process is alive at a time.
 
     Parameters
     ----------
@@ -64,7 +98,5 @@ class KLocalExecutor(LocalExecutor):
 
     def submit(self, func, target, *args, **kwargs):
         queue = Queue(2)  # Size of 2 to avoid a race condition with size 1.
-        process = Process(target=kcall_with_timeout,
-                          args=(queue, self.timeout, func, target, args, kwargs))
-        process.start()
-        return LocalFuture(process, queue)
+        kcall_with_timeout(queue, self.timeout, func, target, args, kwargs)
+        return KLocalFuture(queue)
