@@ -285,7 +285,7 @@ class RPCRunner(Runner):
                 "max_thread_y": max_dims[1],
                 "max_thread_z": max_dims[2],
             }
-            print('kwargs: ',kwargs['check_gpu'])
+            logger.debug('gpu characteristics: %s', str(kwargs['check_gpu']))
             if 'cuda' in self.task.target.keys:
                 kwargs["cuda_arch"] = "sm_" + "".join(ctx.compute_version.split('.'))
         if self.task.target.device_name == 'micro_dev':
@@ -497,6 +497,12 @@ class _WrappedBuildFunc:
             # TODO(tvm-team) consider linline _build_func_common
             func, arg_info = _build_func_common(measure_input, **kwargs)
             func.export_library(filename, self.build_func)
+            if(logger.level <= logging.DEBUG):
+                logger.debug("Exporting non-LLVM source files, %d files to do", len(func.imported_modules))
+                for i in range(len(func.imported_modules)):
+                    with open("fichier"+str(i), 'w') as source_file:
+                        logger.debug("Writing %s", source_file.name)
+                        fichier.write(func.imported_modules[i].get_source())
         except Exception as e:  # pylint: disable=broad-except
             return BuildResult(None, None, e, time.time() - tic)
         return BuildResult(filename, arg_info, None, time.time() - tic)
@@ -635,7 +641,7 @@ def run_through_rpc(
                     errno = MeasureErrorNo.WRONG_ANSWER
     except TVMError as exc:
         msg = str(exc)
-        print("Exception message: ", msg)
+        logger.warning("Exception message: %s", msg)
         if "Stack trace returned" in msg:
             msg = msg[: msg.index("Stack trace returned")]
         if "CUDA Source" in msg:
@@ -928,7 +934,7 @@ class KLocalRunner(Runner):
                 'max_thread_z': max_dims[2],
             }
             """
-            #Tentative darnaque pour ne pas init l'opencl
+            #FIXME Dirty workarount to not instantiate an openCL context, replace this to do it in another process
             kwargs['check_gpu'] = {
                 'max_shared_memory_per_block': 65536,
                 'max_threads_per_block': 1024,
@@ -937,7 +943,6 @@ class KLocalRunner(Runner):
                 'max_thread_z': 1024,
             }
 
-            print(kwargs['check_gpu'])
             if 'cuda' in self.task.target.keys: #FIXME Unverified
                 kwargs["cuda_arch"] = "sm_" + "".join(ctx.compute_version.split('.'))
         if self.task.target.device_name == 'micro_dev':
@@ -1026,12 +1031,9 @@ def k_run_localy(ctx, measure_input, build_result,
             program_fpga(remote, None)
             reconfig_runtime(remote)
             """
-        print("Loading: ", build_result.filename)
         func = tvm.runtime.load_module(build_result.filename)
-        print("Loaded. Evaluating...")
         time_f = func.time_evaluator(
             func.entry_name, ctx, number=number, repeat=repeat, min_repeat_ms=min_repeat_ms)
-        print("Evaluator generated")
         # set input
         if ref_input:
             args = [nd.array(x, ctx=ctx) for x in ref_input]
@@ -1040,11 +1042,8 @@ def k_run_localy(ctx, measure_input, build_result,
             # This can avoid some memory issues that make the measurement results unreliable.
             args = [nd.empty(x[0], dtype=x[1], ctx=ctx) for x in build_result.arg_info]
             args = [nd.array(x, ctx=ctx) for x in args]
-            print("args set, syncing...")
             ctx.sync() #Unsure FIXME
-        print("Obtaining results...")
         costs = time_f(*args).results
-        print("...Success!")
         if len(costs) > 2:  # remove largest and smallest value to reduce variance
             costs = list(costs)
             costs.sort()

@@ -36,7 +36,7 @@ def kcall_with_timeout(queue, timeout, func, target, args, kwargs):
     """A wrapper to support timeout of a function call"""
     # start a new process for timeout (cannot use thread because we have c function)
     p = Process(target=_kexecute_func, args=(func, queue, target, args, kwargs))
-    print("\nProcess created: ", p.name)
+
     p.start()
     p.join(timeout=timeout)
 
@@ -45,7 +45,6 @@ def kcall_with_timeout(queue, timeout, func, target, args, kwargs):
     kill_child_processes(p.pid)
     p.terminate()
     p.join()
-    print("Process destroyed: ", p.name, "\n")
 
 
 class KLocalFuture(executor.Future):
@@ -75,7 +74,6 @@ class KLocalFuture(executor.Future):
             self._queue.close()
             self._queue.join_thread()
             del self._queue
-            print("res queue: ", res)
             return res
         else:
             return self.res

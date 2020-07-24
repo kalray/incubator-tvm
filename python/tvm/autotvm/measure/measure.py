@@ -234,7 +234,7 @@ def measure_option(builder, runner):
 
     return opt
 
-
+import logging
 def create_measure_batch(task, option):
     """Get a standard measure_batch function.
 
@@ -262,8 +262,11 @@ def create_measure_batch(task, option):
     builder.set_task(task, build_kwargs)
 
     def measure_batch(measure_inputs):
+        logging.debug("building measure_batch")
         build_results = builder.build(measure_inputs)
+        logging.debug("measure_batch running")
         results = runner.run(measure_inputs, build_results)
+        logging.debug("measure_batch returning with results")
         return results
 
     measure_batch.n_parallel = builder.n_parallel

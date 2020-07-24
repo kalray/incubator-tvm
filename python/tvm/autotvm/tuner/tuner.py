@@ -27,7 +27,7 @@ from ..util import format_si_prefix
 from ..env import GLOBAL_SCOPE
 
 logger = logging.getLogger('autotvm')
-logger.setLevel(logging.DEBUG)
+
 class Tuner(object):
     """Base class for tuners
 
@@ -127,10 +127,10 @@ class Tuner(object):
                 break
 
             configs = self.next_batch(min(n_parallel, n_trial - i))
-
+            logger.debug("Config list to test: %s", str(configs))
             inputs = [MeasureInput(self.task.target, self.task, config) for config in configs]
             results = measure_batch(inputs)
-
+            logger.debug("Got inputs of length %d and results of length %d", len(inputs), len(results))
             # keep best config
             for k, (inp, res) in enumerate(zip(inputs, results)):
                 config = inp.config
