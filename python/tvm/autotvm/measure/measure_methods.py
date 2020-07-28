@@ -502,7 +502,7 @@ class _WrappedBuildFunc:
                 for i in range(len(func.imported_modules)):
                     with open("fichier"+str(i), 'w') as source_file:
                         logger.debug("Writing %s", source_file.name)
-                        fichier.write(func.imported_modules[i].get_source())
+                        source_file.write(func.imported_modules[i].get_source())
         except Exception as e:  # pylint: disable=broad-except
             return BuildResult(None, None, e, time.time() - tic)
         return BuildResult(filename, arg_info, None, time.time() - tic)
@@ -978,6 +978,8 @@ class KLocalRunner(Runner):
                     results.append(res)
 
         return results
+
+
 def k_run_localy(ctx, measure_input, build_result,
                     number, repeat, min_repeat_ms, cooldown_interval,
                     ref_input=None, ref_output=None):

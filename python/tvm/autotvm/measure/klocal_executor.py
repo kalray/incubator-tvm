@@ -3,6 +3,7 @@
 import signal, os
 import tvm
 import logging
+import time
 
 from multiprocessing import Process, Queue
 try:
@@ -32,6 +33,7 @@ def _kexecute_func(func, queue, target, args, kwargs):
         res = exc
     queue.put(res)
 
+
 def kcall_with_timeout(queue, timeout, func, target, args, kwargs):
     """A wrapper to support timeout of a function call"""
     # start a new process for timeout (cannot use thread because we have c function)
@@ -39,12 +41,12 @@ def kcall_with_timeout(queue, timeout, func, target, args, kwargs):
 
     p.start()
     p.join(timeout=timeout)
-
     queue.put(executor.TimeoutError())
-
     kill_child_processes(p.pid)
     p.terminate()
     p.join()
+    res = KLocalFuture(queue, timeout)
+    return res
 
 
 class KLocalFuture(executor.Future):
@@ -57,26 +59,21 @@ class KLocalFuture(executor.Future):
     queue: multiprocessing.Queue
         queue that receivied the result of the task
     """
-    def __init__(self, queue):
-        self._queue = queue
-        self.res = None
+    def __init__(self, queue, timeout=None):
+        try:
+            self.res = queue.get(block=True, timeout=timeout)
+        except:
+            raise executor.TimeoutError()
+        time.sleep(0.01)
+        queue.close()
+        queue.join_thread()
+        del queue
+
     def done(self):
         return True
 
     def get(self, timeout=None):
-        if self.res is None:
-
-            try:
-                res = self._queue.get(block=True, timeout=timeout)
-                self.res = res
-            except Empty:
-                raise executor.TimeoutError()
-            self._queue.close()
-            self._queue.join_thread()
-            del self._queue
-            return res
-        else:
-            return self.res
+        return self.res
 
 
 class KLocalExecutor(LocalExecutor):
@@ -96,5 +93,5 @@ class KLocalExecutor(LocalExecutor):
 
     def submit(self, func, target, *args, **kwargs):
         queue = Queue(2)  # Size of 2 to avoid a race condition with size 1.
-        kcall_with_timeout(queue, self.timeout, func, target, args, kwargs)
-        return KLocalFuture(queue)
+        return kcall_with_timeout(queue, self.timeout, func, target, args, kwargs)
+

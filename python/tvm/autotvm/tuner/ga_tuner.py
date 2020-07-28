@@ -37,9 +37,10 @@ class GATuner(Tuner):
         number of elite to keep
     mutation_prob: float
         probability of mutation of a knob in a gene
+    kmod: boolean
+        force a gene at fallback config to steer search in this direction
     """
-
-    def __init__(self, task, pop_size=100, elite_num=3, mutation_prob=0.1):
+    def __init__(self, task, pop_size=100, elite_num=3, mutation_prob=0.1, kmod=False):
         super(GATuner, self).__init__(task)
 
         # algorithm configurations
@@ -70,7 +71,10 @@ class GATuner(Tuner):
         self.pop_size = min(self.pop_size, len(self.space))
         self.elite_num = min(self.pop_size, self.elite_num)
         for _ in range(self.pop_size):
-            tmp_gene = point2knob(np.random.randint(len(self.space)), self.dims)
+            if kmod:
+                tmp_gene = point2knob(0, self.dims)
+            else:
+                tmp_gene = point2knob(np.random.randint(len(self.space)), self.dims)
             while knob2point(tmp_gene, self.dims) in self.visited:
                 tmp_gene = point2knob(np.random.randint(len(self.space)), self.dims)
 
