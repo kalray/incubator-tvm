@@ -28,12 +28,12 @@ def schedule_direct_cuda(cfg, s, conv):
     ##### space definition begin #####
     n, f, y, x = s[conv].op.axis
     rc, ry, rx = s[conv].op.reduce_axis
-    cfg.define_split("tile_f", f, num_outputs=4, max_factor=32)
-    cfg.define_split("tile_y", y, num_outputs=4, max_factor=32)
-    cfg.define_split("tile_x", x, num_outputs=4, max_factor=32)
-    cfg.define_split("tile_rc", rc, num_outputs=2, max_factor=32)
-    cfg.define_split("tile_ry", ry, num_outputs=2, max_factor=32)
-    cfg.define_split("tile_rx", rx, num_outputs=2, max_factor=32)
+    cfg.define_split("tile_f", f, num_outputs=4, max_factor=16)
+    cfg.define_split("tile_y", y, num_outputs=4, max_factor=16)
+    cfg.define_split("tile_x", x, num_outputs=4, max_factor=16)
+    cfg.define_split("tile_rc", rc, num_outputs=2, max_factor=16)
+    cfg.define_split("tile_ry", ry, num_outputs=2, max_factor=16)
+    cfg.define_split("tile_rx", rx, num_outputs=2, max_factor=16)
     cfg.define_knob("auto_unroll_max_step", [0, 512, 1500])
 
     target = tvm.target.Target.current()

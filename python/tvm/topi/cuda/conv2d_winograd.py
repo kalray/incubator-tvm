@@ -220,11 +220,11 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
     alpha = get_const_int(b1.dom.extent)
 
     cfg.define_split(
-        "tile_b", cfg.axis(alpha * alpha), num_outputs=4, filter=lambda x: x.size[-3:] == [1, 1, 1], max_factor=32
-    )
-    cfg.define_split("tile_y", y, num_outputs=4, max_factor=32)
-    cfg.define_split("tile_x", x, num_outputs=4, max_factor=32)
-    cfg.define_split("tile_rc", rc, num_outputs=2, max_factor=32)
+        "tile_b", cfg.axis(alpha * alpha), num_outputs=4, filter=lambda x: x.size[-3:] == [1, 1, 1], max_factor=16
+        )
+    cfg.define_split("tile_y", y, num_outputs=4, max_factor=16)
+    cfg.define_split("tile_x", x, num_outputs=4, max_factor=16)
+    cfg.define_split("tile_rc", rc, num_outputs=2, max_factor=16)
     cfg.define_knob("auto_unroll_max_step", [0, 128, 1500])
     target = tvm.target.Target.current()
     if target.kind.name in ["nvptx", "rocm"]:
