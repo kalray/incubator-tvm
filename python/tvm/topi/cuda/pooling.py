@@ -46,7 +46,6 @@ def schedule_adaptive_pool(outs, layout="NCHW"):
         target = tvm.target.Target.current()
         if target.max_num_threads is not None:
             num_thread = min(floor(sqrt(target.max_num_threads)), num_thread)
-
         block_x = te.thread_axis("blockIdx.x")
         block_y = te.thread_axis("blockIdx.y")
         thread_x = te.thread_axis((0, num_thread), "threadIdx.x")
