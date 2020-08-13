@@ -179,7 +179,7 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
     eps, nu, c, p = s[data_pack].op.axis
     p, pi = s[data_pack].split(p, 1)
     fused = s[data_pack].fuse(c, p)
-    bb, tt = s[data_pack].split(fused, 128)
+    bb, tt = s[data_pack].split(fused, 16)
     s[data_pack].reorder(bb, tt, pi, eps, nu)
     s[data_pack].bind(bb, te.thread_axis("blockIdx.x"))
     s[data_pack].bind(tt, te.thread_axis("threadIdx.x"))
@@ -204,7 +204,7 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
                 s[kernel_pack].unroll(axis)
 
             fused = s[kernel_pack].fuse(ci, co)
-            bb, tt = s[kernel_pack].split(fused, 128)
+            bb, tt = s[kernel_pack].split(fused, 16)
             s[kernel_pack].reorder(bb, tt, eps, nu, r_a, r_b)
             s[kernel_pack].bind(bb, te.thread_axis("blockIdx.x"))
             s[kernel_pack].bind(tt, te.thread_axis("threadIdx.x"))
@@ -219,13 +219,12 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
     rc = s[bgemm].op.reduce_axis[0]
     alpha = get_const_int(b1.dom.extent)
 
-    cfg.define_split(
-        "tile_b", cfg.axis(alpha * alpha), num_outputs=4, filter=lambda x: x.size[-3:] == [1, 1, 1], max_factor=16
-        )
-    cfg.define_split("tile_y", y, num_outputs=4, max_factor=16)
-    cfg.define_split("tile_x", x, num_outputs=4, max_factor=16)
+    cfg.define_split("tile_b", cfg.axis(alpha * alpha), num_outputs=4,
+                     filter=lambda x: x.size[-3:] == [1, 1, 1], max_factor=16)
+    cfg.define_split("tile_y", y, num_outputs=4, policy='verbose', filter=lambda x: x.size[-1]*x.size[-2]*x.size[-3] <= 31, max_factor=16)
+    cfg.define_split("tile_x", x, num_outputs=4, policy='verbose', filter=lambda x: x.size[-1]*x.size[-2]*x.size[-3] <= 31, max_factor=16)
     cfg.define_split("tile_rc", rc, num_outputs=2, max_factor=16)
-    cfg.define_knob("auto_unroll_max_step", [0, 128, 1500])
+    cfg.define_knob("auto_unroll_max_step", [0, 128])
     target = tvm.target.Target.current()
     if target.kind.name in ["nvptx", "rocm"]:
         cfg.define_knob("unroll_explicit", [1])
@@ -297,7 +296,7 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
     inverse_scope, n = s[output].split(n, nparts=1)
 
     fused = s[output].fuse(n, co, ho, wo)
-    bb, tt = s[output].split(fused, 128)
+    bb, tt = s[output].split(fused, 16)
 
     s[output].bind(bb, te.thread_axis("blockIdx.x"))
     s[output].bind(tt, te.thread_axis("threadIdx.x"))
