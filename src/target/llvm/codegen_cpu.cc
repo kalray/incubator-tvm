@@ -222,6 +222,7 @@ llvm::DIType* CodeGenCPU::getDebugType(IRBuilder* builder, llvm::DIBuilder* di_b
 }
 
 void CodeGenCPU::AddMainFunction(const std::string& entry_func_name) {
+	std::cout << entry_func_name << "\n";
   llvm::Function* f = module_->getFunction(entry_func_name);
   ICHECK(f) << "Function " << entry_func_name << "does not in module";
   llvm::Type* type = llvm::ArrayType::get(t_char_, entry_func_name.length() + 1);

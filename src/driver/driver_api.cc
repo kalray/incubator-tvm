@@ -308,7 +308,6 @@ runtime::Module build(const Map<String, IRModule>& inputs, const Target& target_
   for (const auto& it : inputs) {
     auto target = Target(it.first);
     Optional<String> device = target->GetAttr<String>("device");
-    std::cerr << "Target created: " + it.first + "\n";
     if (device.defined() && device.value() == "vta") {
       target = Target("ext_dev");
     }
