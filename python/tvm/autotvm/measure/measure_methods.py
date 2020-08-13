@@ -453,8 +453,8 @@ def _build_func_common(measure_input, check_gpu=None, cuda_arch=None, build_opti
                 func = build(s, args, target_host=task.target_host)
     return func, tuple((get_const_tuple(x.shape), x.dtype) for x in args)
 
-
-class _WrappedBuildFunc:
+import pickle
+class _WrappedBuildFunc():
     """
     Wrap build_func to a function that can be used in measure.
 
@@ -498,11 +498,20 @@ class _WrappedBuildFunc:
             func, arg_info = _build_func_common(measure_input, **kwargs)
             func.export_library(filename, self.build_func)
             if(logger.level <= logging.DEBUG):
+                debug_lib_name = "last_lib.{}".format(self.build_func.output_format)
+                func.export_library(debug_lib_name, self.build_func)
                 logger.debug("Exporting non-LLVM source files, %d files to do", len(func.imported_modules))
                 for i in range(len(func.imported_modules)):
-                    with open("fichier"+str(i), 'w') as source_file:
+                    with open("source"+str(i), 'w') as source_file:
                         logger.debug("Writing %s", source_file.name)
                         source_file.write(func.imported_modules[i].get_source())
+                logger.debug("Exporting LLVM host source")
+                with open("host_source", 'w') as source_file:
+                        logger.debug("Writing %s", source_file.name)
+                        source_file.write(func.get_source())
+                with open("measure_args.pkl", 'wb') as args_file:
+                        logger.debug("Writing %s", args_file.name)
+                        pickle.dump(arg_info, args_file)
         except Exception as e:  # pylint: disable=broad-except
             return BuildResult(None, None, e, time.time() - tic)
         return BuildResult(filename, arg_info, None, time.time() - tic)
