@@ -119,7 +119,7 @@ def schedule_softmax(outs):
             s[max_elem].bind(max_elem.op.axis[0], block_x)
 
     else:
-        num_thread = 64
+        num_thread = 16
         block_x = te.thread_axis("blockIdx.x")
         thread_x = te.thread_axis((0, num_thread), "threadIdx.x")
 

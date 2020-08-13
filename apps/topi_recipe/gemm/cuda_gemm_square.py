@@ -67,7 +67,7 @@ def test_gemm():
     CC = s.cache_write(C, "local")
 
     scale = 8
-    num_thread = 8
+    num_thread = 4
     block_factor = scale * num_thread
     block_x = te.thread_axis("blockIdx.x")
     thread_x = te.thread_axis((0, num_thread), "threadIdx.x")

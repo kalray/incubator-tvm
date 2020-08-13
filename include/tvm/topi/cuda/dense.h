@@ -97,7 +97,7 @@ inline Schedule schedule_dense(const Target& target, const Array<Tensor>& outs) 
   auto s = create_schedule(out_ops);
 
   auto _schedule = [&](const Tensor& dense) {
-    auto num_thread = 64;
+    auto num_thread = 16;
     auto k = dense->op.as<ComputeOpNode>()->reduce_axis[0];
     IterVar ko, kf;
     s[dense].split(k, num_thread, &ko, &kf);

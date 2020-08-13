@@ -71,7 +71,7 @@ inline Schedule schedule_softmax(const Target& target, const Array<Tensor>& outs
     LOG(ERROR) << "Tag is expected to be softmax_output or log_softmax_output. Got " << tag;
   }
 
-  int num_thread = 64;
+  int num_thread = 16;
   auto block_x = tvm::te::thread_axis(Range(), "blockIdx.x");
   auto thread_x = tvm::te::thread_axis(Range(0, num_thread), "threadIdx.x");
 

@@ -45,7 +45,7 @@ inline Schedule schedule_lrn(const Array<Tensor>& outs) {
     out_ops.push_back(t->op);
   }
   Schedule s = create_schedule(out_ops);
-  int num_thread = 64;
+  int num_thread = 16;
   IterVar block_x = tvm::te::thread_axis(Range(), "blockIdx.x");
   IterVar thread_x = tvm::te::thread_axis(Range(0, num_thread), "threadIdx.x");
   Tensor lrn = outs[0];

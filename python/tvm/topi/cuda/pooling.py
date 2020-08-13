@@ -40,7 +40,7 @@ def schedule_adaptive_pool(outs, layout="NCHW"):
     s = te.create_schedule([x.op for x in outs])
 
     def _schedule(Pool):
-        num_thread = 8
+        num_thread = 4
         block_x = te.thread_axis("blockIdx.x")
         block_y = te.thread_axis("blockIdx.y")
         thread_x = te.thread_axis((0, num_thread), "threadIdx.x")

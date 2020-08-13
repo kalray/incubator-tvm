@@ -73,7 +73,7 @@ Schedule ScheduleReduce(const Target& target, Operation op, Schedule sch,
     if (target->kind->name == "opencl") {
       // Without this, CL_INVALID_WORK_GROUP_SIZE occurs with python tests.
       // Don't know why.
-      num_thread = 16;
+      num_thread = 4;
     }
     block_x = tvm::te::thread_axis(Range(), "blockIdx.x");
     thread_x = tvm::te::thread_axis(Range(0, num_thread), "threadIdx.x");
