@@ -29,12 +29,12 @@ def schedule_direct_cuda(cfg, s, conv):
     ##### space definition begin #####
     n, f, y, x = s[conv].op.axis
     rc, ry, rx = s[conv].op.reduce_axis
-    cfg.define_split("tile_f", f, filter = lambda x: (x.size[2] <= num_thread**2) and (x.size[3] == 1), num_outputs=4)
+    cfg.define_split("tile_f", f, filter = lambda x: (x.size[1] == 1) and (x.size[2] <= num_thread**2) and (x.size[3] == 1), num_outputs=4)
     cfg.define_split("tile_y", y, filter = lambda x: (x.size[2] <= num_thread**2) and (x.size[3] <= 4), num_outputs=4)
     cfg.define_split("tile_x", x, filter = lambda x: (x.size[2] == 1) and (x.size[3] <= 4), num_outputs=4)
-    cfg.define_split("tile_rc", rc, num_outputs=2)
-    cfg.define_split("tile_ry", ry, num_outputs=2)
-    cfg.define_split("tile_rx", rx, num_outputs=2)
+    cfg.define_split("tile_rc", rc, filter = lambda x: x.size[1] <= 9, num_outputs=2)
+    cfg.define_split("tile_ry", ry, filter = lambda x: x.size[1] <= 9, num_outputs=2)
+    cfg.define_split("tile_rx", rx, filter = lambda x: x.size[1] <= 9, num_outputs=2)
 
     cfg.define_knob("auto_unroll_max_step", [0, 512])
 

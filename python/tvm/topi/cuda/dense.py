@@ -81,7 +81,7 @@ def _schedule_dense_small_batch(cfg, s, C):
     _, in_dim = get_const_tuple(A.shape)
     cfg.define_split("tile_k", in_dim, num_outputs=2)
     if cfg.is_fallback:
-        cfg["tile_k"] = SplitEntity([-1, 64] if in_dim > 64 else [1, 64])
+        cfg["tile_k"] = SplitEntity([-1, 16] if in_dim > 16 else [1, 16])
 
     _, kf = cfg["tile_k"].apply(s, C, C.op.reduce_axis[0])
     CF = s.rfactor(C, kf)

@@ -131,21 +131,16 @@ def conv2d_strategy_cuda(attrs, inputs, out_type, target):
                     name="conv2d_nchw.cuda",
                 )
             _, _, kh, kw = get_const_tuple(kernel.shape)
-            if (
-                2 < kh < 8
-                and 2 < kw < 8
-                and kh == kw
-                and stride_h == 1
-                and stride_w == 1
-                and dilation_h == 1
-                and dilation_w == 1
-            ):
+            """
+            #Commented out to compare efficiency
+            if 2 < kh < 8 and 2 < kw < 8 and kh == kw and stride_h == 1 and stride_w == 1 and \
+                dilation_h == 1 and dilation_w == 1:
                 strategy.add_implementation(
                     wrap_compute_conv2d(topi.cuda.conv2d_nchw_winograd),
                     wrap_topi_schedule(topi.cuda.schedule_conv2d_nchw_winograd),
                     name="conv2d_nchw_winograd.cuda",
-                    plevel=5,
-                )
+                    plevel=5)
+            """
         elif layout == "HWCN":
             assert kernel_layout == "HWIO"
             strategy.add_implementation(
