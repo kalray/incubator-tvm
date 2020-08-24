@@ -30,20 +30,25 @@ def schedule_direct_cuda(cfg, s, conv):
     n, f, y, x = s[conv].op.axis
     rc, ry, rx = s[conv].op.reduce_axis
 
-    cfg.define_split("tile_f", f, policy = 'verbose', filter = lambda x: (x.size[2] <= num_thread**2) and (x.size[3] * x.size[1] == 1), num_outputs=4)
-    cfg.define_split("tile_y", y, policy = 'verbose', filter = lambda x: (x.size[2] <= num_thread**2) and (x.size[3] * x.size[1] <= 22), num_outputs=4)
-    cfg.define_split("tile_x", x, policy = 'verbose', filter = lambda x: (x.size[2] == 1) and (x.size[3] * x.size[1] <= 22), num_outputs=4)
-    cfg.define_split("tile_rc", rc, filter = lambda x: x.size[1] <= 32, num_outputs=2)
-    cfg.define_split("tile_ry", ry, filter = lambda x: x.size[1] <= 16, num_outputs=2)
-    cfg.define_split("tile_rx", rx, filter = lambda x: x.size[1] <= 16, num_outputs=2)
-
-    cfg.define_knob("auto_unroll_max_step", [0, 512])
+    cfg.define_split("tile_f", f, policy = 'verbose',
+            filter = lambda x: (x.size[2] == num_thread**2) and (x.size[3] * x.size[1] == 1),
+            num_outputs=4)
+    cfg.define_split("tile_y", y, policy = 'verbose',
+        filter = lambda x: (x.size[2] == 1) and (x.size[3] * x.size[1] <= 22) and (x.size[1] == 1),
+        num_outputs=4)
+    cfg.define_split("tile_x", x, policy = 'verbose',
+        filter = lambda x: (x.size[2] == 1) and (x.size[3] * x.size[1] <= 22) and (x.size[1] == 1),
+        num_outputs=4)
+    cfg.define_split("tile_rc", rc, filter = lambda x: x.size[1] <= 64, num_outputs=2)
+    cfg.define_split("tile_ry", ry, filter = lambda x: x.size[1] <= 32, num_outputs=2)
+    cfg.define_split("tile_rx", rx, filter = lambda x: x.size[1] <= 32, num_outputs=2)
+    cfg.define_knob("auto_unroll_max_step", [0])
 
     target = tvm.target.Target.current()
     if target.kind.name in ["nvptx", "rocm"]:
         cfg.define_knob("unroll_explicit", [1])
     else:
-        cfg.define_knob("unroll_explicit", [0, 1])
+        cfg.define_knob("unroll_explicit", [0])
 
     # fallback support
     if cfg.is_fallback:
@@ -71,7 +76,7 @@ def schedule_direct_cuda(cfg, s, conv):
     AA = s.cache_read(pad_data, "shared", [OL])
     WW = s.cache_read(kernel, "shared", [OL])
 
-    # tile and bind spatial axes
+   # tile and bind spatial axes
     n, f, y, x = s[output].op.axis
     kernel_scope, n = s[output].split(n, nparts=1)
 
@@ -89,7 +94,7 @@ def schedule_direct_cuda(cfg, s, conv):
     s[output].bind(tf, te.thread_axis("threadIdx.z"))
     s[output].bind(ty, te.thread_axis("threadIdx.y"))
     s[output].bind(tx, te.thread_axis("threadIdx.x"))
-    s[output].reorder(bf, by, bx, vf, vy, vx, tf, ty, tx, fi, yi,xi)
+    s[output].reorder(bf, by, bx, vf, vy, vx, tf, ty, tx, fi, yi, xi)
     s[OL].compute_at(s[output], tx)
 
     # tile reduction axes
@@ -117,6 +122,10 @@ def schedule_direct_cuda(cfg, s, conv):
     # unroll
     s[output].pragma(kernel_scope, "auto_unroll_max_step", cfg["auto_unroll_max_step"].val)
     s[output].pragma(kernel_scope, "unroll_explicit", cfg["unroll_explicit"].val)
+
+    # Double buffering
+    s[AA].double_buffer()
+    s[WW].double_buffer()
 
     N, CO, OH, OW = get_const_tuple(output.shape)
     _, KH, KW, CI = get_const_tuple(kernel.shape)

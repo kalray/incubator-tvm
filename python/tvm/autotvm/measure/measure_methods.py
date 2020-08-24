@@ -945,11 +945,11 @@ class KLocalRunner(Runner):
             """
             #FIXME Dirty workarount to not instantiate an openCL context, replace this to do it in another process
             kwargs['check_gpu'] = {
-                'max_shared_memory_per_block': 65536,
-                'max_threads_per_block': 1024,
-                'max_thread_x': 1024,
-                'max_thread_y': 1024,
-                'max_thread_z': 1024,
+                'max_shared_memory_per_block': 1048576,
+                'max_threads_per_block': 16,
+                'max_thread_x': 16,
+                'max_thread_y': 16,
+                'max_thread_z': 16,
             }
 
             if 'cuda' in self.task.target.keys: #FIXME Unverified
