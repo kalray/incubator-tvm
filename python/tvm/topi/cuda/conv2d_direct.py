@@ -95,7 +95,7 @@ def schedule_direct_cuda(cfg, s, conv):
     s[output].bind(tf, te.thread_axis("threadIdx.z"))
     s[output].bind(ty, te.thread_axis("threadIdx.y"))
     s[output].bind(tx, te.thread_axis("threadIdx.x"))
-    s[output].reorder(bf, by, bx, vf, vy, vx, tf, ty, tx, fi, yi,xi)
+    s[output].reorder(bf, by, bx, vf, vy, vx, tf, ty, tx, fi, yi, xi)
     s[OL].compute_at(s[output], tx)
 
 
@@ -128,6 +128,10 @@ def schedule_direct_cuda(cfg, s, conv):
     # Double buffering
     #s[AA].double_buffer()
     #s[WW].double_buffer()
+
+    # Double buffering
+    s[AA].double_buffer()
+    s[WW].double_buffer()
 
     N, CO, OH, OW = get_const_tuple(output.shape)
     _, KH, KW, CI = get_const_tuple(kernel.shape)
