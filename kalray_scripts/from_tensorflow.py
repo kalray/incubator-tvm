@@ -69,6 +69,7 @@ label_map_url = os.path.join(repo_base, label_map)
 
 # Target settings
 target = 'opencl'
+target_host = 'llvm'
 
 layout = None
 ctx = tvm.context(target)
