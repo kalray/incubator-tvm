@@ -23,22 +23,18 @@ from ..util import get_const_tuple
 
 
 def schedule_direct_cuda(cfg, s, conv):
-    """schedule optimized for batch size = 1"""
+    num_thread = 16
 
-    num_thread = 4
     ##### space definition begin #####
     n, f, y, x = s[conv].op.axis
     rc, ry, rx = s[conv].op.reduce_axis
 
-    cfg.define_split("tile_f", f, policy = 'verbose',
-            filter = lambda x: (x.size[2] == num_thread**2) and (x.size[3] * x.size[1] == 1),
-            num_outputs=4)
     cfg.define_split("tile_y", y, policy = 'verbose',
-        filter = lambda x: (x.size[2] == 1) and (x.size[3] * x.size[1] <= 22) and (x.size[1] == 1),
-        num_outputs=4)
+        filter = lambda x: (x.size[1] == 1) and (x.size[2] <= 512),
+        num_outputs=3)
     cfg.define_split("tile_x", x, policy = 'verbose',
-        filter = lambda x: (x.size[2] == 1) and (x.size[3] * x.size[1] <= 22) and (x.size[1] == 1),
-        num_outputs=4)
+        filter = lambda x: (x.size[1] == 1) and (x.size[2] <= 512) ,
+        num_outputs=3)
     cfg.define_split("tile_rc", rc, filter = lambda x: x.size[1] <= 64, num_outputs=2)
     cfg.define_split("tile_ry", ry, filter = lambda x: x.size[1] <= 32, num_outputs=2)
     cfg.define_split("tile_rx", rx, filter = lambda x: x.size[1] <= 32, num_outputs=2)
@@ -49,6 +45,7 @@ def schedule_direct_cuda(cfg, s, conv):
         cfg.define_knob("unroll_explicit", [1])
     else:
         cfg.define_knob("unroll_explicit", [0])
+
 
     # fallback support
     if cfg.is_fallback:
@@ -80,22 +77,24 @@ def schedule_direct_cuda(cfg, s, conv):
     n, f, y, x = s[output].op.axis
     kernel_scope, n = s[output].split(n, nparts=1)
 
-    bf, vf, tf, fi = cfg["tile_f"].apply(s, output, f)
-    by, vy, ty, yi = cfg["tile_y"].apply(s, output, y)
-    bx, vx, tx, xi = cfg["tile_x"].apply(s, output, x)
+    #Cluster splitting
+    bf, tf = s[output].split(f, factor=num_thread)
+    #PE splitting
+    tf, fi = s[output].split(tf, factor=1)
+
+    by, ty, yi = cfg["tile_y"].apply(s, output, y)
+    bx, tx, xi = cfg["tile_x"].apply(s, output, x)
 
     bf = s[output].fuse(n, bf)
     s[output].bind(bf, te.thread_axis("blockIdx.z"))
     s[output].bind(by, te.thread_axis("blockIdx.y"))
     s[output].bind(bx, te.thread_axis("blockIdx.x"))
-    s[output].bind(vf, te.thread_axis("vthread"))
-    s[output].bind(vy, te.thread_axis("vthread"))
-    s[output].bind(vx, te.thread_axis("vthread"))
     s[output].bind(tf, te.thread_axis("threadIdx.z"))
     s[output].bind(ty, te.thread_axis("threadIdx.y"))
     s[output].bind(tx, te.thread_axis("threadIdx.x"))
-    s[output].reorder(bf, by, bx, vf, vy, vx, tf, ty, tx, fi, yi, xi)
+    s[output].reorder(bf, by, bx, tf, ty, tx, fi, yi, xi)
     s[OL].compute_at(s[output], tx)
+
 
     # tile reduction axes
     n, f, y, x = s[OL].op.axis
@@ -112,9 +111,9 @@ def schedule_direct_cuda(cfg, s, conv):
     for load in [AA, WW]:
         n, f, y, x = s[load].op.axis
         fused = s[load].fuse(n, f, y, x)
-        tz, fused = s[load].split(fused, nparts=cfg["tile_f"].size[2])
-        ty, fused = s[load].split(fused, nparts=cfg["tile_y"].size[2])
-        tx, fused = s[load].split(fused, nparts=cfg["tile_x"].size[2])
+        tz, fused = s[load].split(fused, nparts=num_thread)
+        ty, fused = s[load].split(fused, nparts=cfg["tile_y"].size[1])
+        tx, fused = s[load].split(fused, nparts=cfg["tile_x"].size[1])
         s[load].bind(tz, te.thread_axis("threadIdx.z"))
         s[load].bind(ty, te.thread_axis("threadIdx.y"))
         s[load].bind(tx, te.thread_axis("threadIdx.x"))
