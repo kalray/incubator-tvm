@@ -966,7 +966,7 @@ class KLocalRunner(Runner):
             for measure_inp, build_res in zip(measure_inputs[i:i+self.n_parallel],
                                               build_results[i:i+self.n_parallel]):
 
-                ret = self.executor.submit(k_run_localy,
+                ret = self.executor.submit(k_run_locally,
                                            self.target,
                                            measure_inp,
                                            build_res,
@@ -989,10 +989,10 @@ class KLocalRunner(Runner):
         return results
 
 
-def k_run_localy(ctx, measure_input, build_result,
+def k_run_locally(ctx, measure_input, build_result,
                     number, repeat, min_repeat_ms, cooldown_interval,
                     ref_input=None, ref_output=None):
-    """Run a generated library localy
+    """Run a generated library locally
 
     Parameters
     ----------
