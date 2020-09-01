@@ -82,22 +82,21 @@ def schedule_direct_cuda(cfg, s, conv):
     n, f, y, x = s[output].op.axis
     kernel_scope, n = s[output].split(n, nparts=1)
 
-    #Cluster splitting
-    bf, tf = s[output].split(f, factor=num_thread)
-    #PE splitting
-    tf, fi = s[output].split(tf, factor=1)
-
-    by, ty, yi = cfg["tile_y"].apply(s, output, y)
-    bx, tx, xi = cfg["tile_x"].apply(s, output, x)
+    bf, vf, tf, fi = cfg["tile_f"].apply(s, output, f)
+    by, vy, ty, yi = cfg["tile_y"].apply(s, output, y)
+    bx, vx, tx, xi = cfg["tile_x"].apply(s, output, x)
 
     bf = s[output].fuse(n, bf)
     s[output].bind(bf, te.thread_axis("blockIdx.z"))
     s[output].bind(by, te.thread_axis("blockIdx.y"))
     s[output].bind(bx, te.thread_axis("blockIdx.x"))
+    s[output].bind(vf, te.thread_axis("vthread"))
+    s[output].bind(vy, te.thread_axis("vthread"))
+    s[output].bind(vx, te.thread_axis("vthread"))
     s[output].bind(tf, te.thread_axis("threadIdx.z"))
     s[output].bind(ty, te.thread_axis("threadIdx.y"))
     s[output].bind(tx, te.thread_axis("threadIdx.x"))
-    s[output].reorder(bf, by, bx, tf, ty, tx, fi, yi, xi)
+    s[output].reorder(bf, by, bx, vf, vy, vx, tf, ty, tx, fi, yi, xi)
     s[OL].compute_at(s[output], tx)
 
 
@@ -116,9 +115,9 @@ def schedule_direct_cuda(cfg, s, conv):
     for load in [AA, WW]:
         n, f, y, x = s[load].op.axis
         fused = s[load].fuse(n, f, y, x)
-        tz, fused = s[load].split(fused, nparts=num_thread)
-        ty, fused = s[load].split(fused, nparts=cfg["tile_y"].size[1])
-        tx, fused = s[load].split(fused, nparts=cfg["tile_x"].size[1])
+        tz, fused = s[load].split(fused, nparts=cfg["tile_f"].size[2])
+        ty, fused = s[load].split(fused, nparts=cfg["tile_y"].size[2])
+        tx, fused = s[load].split(fused, nparts=cfg["tile_x"].size[2])
         s[load].bind(tz, te.thread_axis("threadIdx.z"))
         s[load].bind(ty, te.thread_axis("threadIdx.y"))
         s[load].bind(tx, te.thread_axis("threadIdx.x"))
@@ -132,8 +131,8 @@ def schedule_direct_cuda(cfg, s, conv):
     #s[WW].double_buffer()
 
     # Double buffering
-    s[AA].double_buffer()
-    s[WW].double_buffer()
+    #s[AA].double_buffer()
+    #s[WW].double_buffer()
 
     N, CO, OH, OW = get_const_tuple(output.shape)
     _, KH, KW, CI = get_const_tuple(kernel.shape)
