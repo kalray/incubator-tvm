@@ -1,3 +1,9 @@
+"""
+Author: Aurélien Potin
+
+This simple script generates a finalized tuning log from a temporay log file.
+It is useful to salvage a tuning that stopped during execution.
+"""
 import os
 import numpy as np
 

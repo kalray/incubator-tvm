@@ -25,6 +25,7 @@ parser.add_argument("--write", help="Write source files")
 
 args = parser.parse_args()
 
+# Target string, change it to suit your target
 target = "opencl -device=kmppa -max_num_threads=16"
 dtype="float32"
 
@@ -60,6 +61,11 @@ def get_network(name, batch_size):
     return mod, params, input_shape, output_shape
 
 def eval_log(log_file, network, output_source=False):
+    """
+    Evaluates the network with the help of the logs given in argument.
+    The logs may not correspond to the network's kernels and only the pertinent ones
+    will be used.
+    """
 
     mod, params, input_shape, out_shape = get_network(network, batch_size=1)
 
@@ -94,6 +100,10 @@ def eval_log(log_file, network, output_source=False):
         return
 
 def eval_fallback(network, output_source=None):
+    """
+    Evaluates the network without any tuning log, forcing it to fallback configuration
+    for all kernels. It may also use tophup logs if they wre downloaded.
+    """
     mod, params, input_shape, out_shape = get_network(network, batch_size=1)
     print("Compile...")
     with tvm.transform.PassContext(opt_level=3):

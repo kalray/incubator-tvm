@@ -1,41 +1,15 @@
-# Licensed to the Apache Software Foundation (ASF) under one
-# or more contributor license agreements.  See the NOTICE file
-# distributed with this work for additional information
-# regarding copyright ownership.  The ASF licenses this file
-# to you under the Apache License, Version 2.0 (the
-# "License"); you may not use this file except in compliance
-# with the License.  You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing,
-# software distributed under the License is distributed on an
-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, either express or implied.  See the License for the
-# specific language governing permissions and limitations
-# under the License.
 """
-.. _tutorial-relay-quick-start:
-
 Quick Start Tutorial for Compiling Deep Learning Models
 =======================================================
-**Author**: `Yao Wang <https://github.com/kevinthesun>`_, `Truman Tian <https://github.com/SiNZeRo>`_
+Original script Authors: Yao Wang <https://github.com/kevinthesun>, Truman Tian <https://github.com/SiNZeRo>
+
+Modification Author: Aurélien Potin
 
 This example shows how to build a neural network with Relay python frontend and
-generates a runtime library for Nvidia GPU with TVM.
-Notice that you need to build TVM with cuda and llvm enabled.
+run it.
+Notice that you need to build TVM llvm enabled.
 """
 
-######################################################################
-# Overview for Supported Hardware Backend of TVM
-# ----------------------------------------------
-# The image below shows hardware backend currently supported by TVM:
-#
-# .. image:: https://github.com/dmlc/web-data/raw/master/tvm/tutorial/tvm_support_list.png
-#      :align: center
-#
-# In this tutorial, we'll choose cuda and llvm as target backends.
-# To begin with, let's import Relay and TVM.
 import numpy as np
 
 from tvm import relay
@@ -48,7 +22,7 @@ from tvm.contrib import graph_runtime
 # Define Neural Network in Relay
 # ------------------------------
 # First, let's define a neural network with relay python frontend.
-# For simplicity, we'll use pre-defined resnet-18 network in Relay.
+# For simplicity, we'll use pre-defined squeezenet v1.1 network in Relay.
 # Parameters are initialized with Xavier initializer.
 # Relay also supports other model formats such as MXNet, CoreML, ONNX and
 # Tensorflow.
@@ -60,17 +34,14 @@ from tvm.contrib import graph_runtime
 
 batch_size = 1
 num_class = 1000
-image_shape = (3, 224, 224) #224
+image_shape = (3, 224, 224)
 data_shape = (batch_size,) + image_shape
 out_shape = (batch_size, num_class)
 
-#num_layer=50
-#image_shape=image_shape
-mod, params = relay.testing.mobilenet.get_workload(batch_size=batch_size)
-#mod, params = relay.testing.squeezenet.get_workload(version='1.1', batch_size=batch_size)
+mod, params = relay.testing.squeezenet.get_workload(version='1.1', batch_size=batch_size)
 
 # set show_meta_data=True if you want to show meta data
-#print(mod.astext(show_meta_data=False))
+# print(mod.astext(show_meta_data=False))
 
 ######################################################################
 # Compilation
@@ -87,17 +58,16 @@ mod, params = relay.testing.mobilenet.get_workload(batch_size=batch_size)
 # optimization while TVM does the tensor-level optimization, resulting
 # in an optimized runtime module for model serving.
 #
-# We'll first compile for Nvidia GPU. Behind the scene, :py:func:`relay.build`
+# Behind the scene, :py:func:`relay.build`
 # first does a number of graph-level optimizations, e.g. pruning, fusing, etc.,
 # then registers the operators (i.e. the nodes of the optimized graphs) to
 # TVM implementations to generate a `tvm.module`.
 # To generate the module library, TVM will first transfer the high level IR
-# into the lower intrinsic IR of the specified target backend, which is CUDA
-# in this example. Then the machine code will be generated as the module library.
+# into the lower intrinsic IR of the specified target backend
+# Then the machine code will be generated as the module library.
 
 opt_level = 1
 target='opencl -max_num_threads=16 -device=kalray'
-#target = 'opencl -max_num_threads=128 -device=kalray'
 with tvm.transform.PassContext(opt_level=opt_level):
     print("Creating graph")
     graph, lib, params = relay.build(mod,
@@ -128,6 +98,8 @@ for i in range(len(lib.imported_modules)):
 # run
 module.run()
 print("Run finished")
+
+#Uncomment the next block of code to evaluate the execution time
 """
 # evaluate
 print("Evaluate inference time cost...")

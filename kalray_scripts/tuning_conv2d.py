@@ -1,3 +1,6 @@
+"""
+Tuning script
+"""
 import os
 import numpy as np
 
@@ -82,9 +85,6 @@ def tune_tasks(tasks,
 
     for i, tsk in enumerate(reversed(tasks)):
         prefix = "[Task %2d/%2d] " %(i+1, len(tasks))
-        #if i <= 16:
-        #    continue
-        # create tuner
         if tuner == 'xgb' or tuner == 'xgb-rank':
             tuner_obj = XGBTuner(tsk, loss_type='rank')
         elif tuner == 'ga':

@@ -68,13 +68,7 @@ label_map = 'imagenet_synset_to_human_label_map.txt'
 label_map_url = os.path.join(repo_base, label_map)
 
 # Target settings
-# Use these commented settings to build for cuda.
-#target = 'cuda'
-#target_host = 'llvm'
-#layout = "NCHW"
-#ctx = tvm.gpu(0)
 target = 'opencl'
-target_host = 'stackvm'
 
 layout = None
 ctx = tvm.context(target)
@@ -239,4 +233,4 @@ def run_inference_on_image(image):
             score = predictions[node_id]
             print('%s (score = %.5f)' % (human_string, score))
 
-#run_inference_on_image(img_path)
+run_inference_on_image(img_path)
