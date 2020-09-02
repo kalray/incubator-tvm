@@ -932,25 +932,9 @@ class KLocalRunner(Runner):
         kwargs = {}
         if 'cuda' in self.task.target.keys or 'opencl' in self.task.target.keys or \
            'rocm' in self.task.target.keys or 'vulkan' in self.task.target.keys:
-            """
-            ctx = tvm.context(self.target)
-            max_dims = ctx.max_thread_dimensions
-            kwargs['check_gpu'] = {
-                'max_shared_memory_per_block': ctx.max_shared_memory_per_block,
-                'max_threads_per_block': ctx.max_threads_per_block,
-                'max_thread_x': max_dims[0],
-                'max_thread_y': max_dims[1],
-                'max_thread_z': max_dims[2],
-            }
-            """
-            #FIXME Dirty workarount to not instantiate an openCL context, replace this to do it in another process
-            kwargs['check_gpu'] = {
-                'max_shared_memory_per_block': 1048576,
-                'max_threads_per_block': 16,
-                'max_thread_x': 16,
-                'max_thread_y': 16,
-                'max_thread_z': 16,
-            }
+            request = self.executor.submit(k_get_opencl_specs, self.target)
+            kwargs['check_gpu'] = request.get()
+            logger.debug('device characteristics: %s', str(kwargs['check_gpu']))
 
             if 'cuda' in self.task.target.keys: #FIXME Unverified
                 kwargs["cuda_arch"] = "sm_" + "".join(ctx.compute_version.split('.'))
@@ -987,6 +971,18 @@ class KLocalRunner(Runner):
                     results.append(res)
 
         return results
+
+
+def k_get_opencl_specs(ctx):
+    max_dims = ctx.max_thread_dimensions
+    specs_dir = {
+        'max_shared_memory_per_block': ctx.max_shared_memory_per_block,
+        'max_threads_per_block': ctx.max_threads_per_block,
+        'max_thread_x': max_dims[0],
+        'max_thread_y': max_dims[1],
+        'max_thread_z': max_dims[2]}
+
+    return specs_dir
 
 
 def k_run_locally(ctx, measure_input, build_result,
