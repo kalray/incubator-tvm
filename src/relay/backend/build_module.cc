@@ -462,12 +462,12 @@ class RelayBuildModule : public runtime::ModuleNode {
         ret_.mod = tvm::codegen::CSourceModuleCreate(";", "");
       }
     } else {
-      fprintf( stderr, "Building...\n");
+	std::cout << "Building...\n";
       for (const auto& x : lowered_funcs) {
-        std::cerr << "--> "+ x.first + "\n" ;
+        std::cout << "--> "+ x.first + "\n" ;
       }
       ret_.mod = tvm::build(lowered_funcs, target_host_);
-      fprintf( stderr, "Build successful!\n");
+      std::cout << "Build successful!\n";
     }
 
     Array<tvm::runtime::Module> ext_mods = graph_codegen_->GetExternalModules();
