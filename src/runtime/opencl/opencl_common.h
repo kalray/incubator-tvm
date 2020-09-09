@@ -209,6 +209,7 @@ class OpenCLWorkspace : public DeviceAPI {
   std::mutex mu;
   // destructor
   ~OpenCLWorkspace() {
+    std::cout<<"\nDestr OCL Workspace \n";
     if (context != nullptr) {
       OPENCL_CALL(clReleaseContext(context));
     }

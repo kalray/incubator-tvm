@@ -122,7 +122,6 @@ std::unique_ptr<llvm::TargetMachine> GetLLVMTargetMachine(const Target& target, 
   llvm::TargetOptions opt;
 
   ParseLLVMTargetOptions(target, &target_triple, &mcpu, &mattr, &opt);
-
   if (target_triple.length() == 0 || target_triple == "default") {
     target_triple = llvm::sys::getDefaultTargetTriple();
   }
