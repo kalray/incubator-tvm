@@ -45,7 +45,11 @@ inline Schedule schedule_lrn(const Array<Tensor>& outs) {
     out_ops.push_back(t->op);
   }
   Schedule s = create_schedule(out_ops);
-  int num_thread = 16;
+  int num_thread = 64;
+  // Adapting to device FIXME: target unreachable
+  //num_thread = std::min((int)target->GetAttr<Integer>("max_num_threads").value(), num_thread);
+
+
   IterVar block_x = tvm::te::thread_axis(Range(), "blockIdx.x");
   IterVar thread_x = tvm::te::thread_axis(Range(0, num_thread), "threadIdx.x");
   Tensor lrn = outs[0];

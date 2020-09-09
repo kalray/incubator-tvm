@@ -67,7 +67,10 @@ def test_gemm():
     CC = s.cache_write(C, "local")
 
     scale = 8
-    num_thread = 4
+    num_thread = 8
+    target = tvm.target.Target.current()
+    if target.kind.max_num_threads is not None:
+        num_thread = min(isqrt(target.id.max_num_threads), num_thread)
     block_factor = scale * num_thread
     block_x = te.thread_axis("blockIdx.x")
     thread_x = te.thread_axis((0, num_thread), "threadIdx.x")

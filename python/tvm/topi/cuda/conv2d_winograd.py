@@ -160,6 +160,13 @@ def winograd_cuda(cfg, data, kernel, strides, padding, dilation, out_dtype, pre_
 
 def schedule_winograd_cuda(cfg, s, output, pre_computed):
     """Schedule winograd template"""
+    # get number of threads available from target
+    target = tvm.target.Target.current()
+    if target.id.max_num_threads is not None:
+        num_thread = min(target.kind.max_num_threads, 128)
+    else:
+        num_thread = 128
+
     # get stages
     inverse = s[output].op.input_tensors[0]
     bgemm, A = s[inverse].op.input_tensors
@@ -179,7 +186,7 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
     eps, nu, c, p = s[data_pack].op.axis
     p, pi = s[data_pack].split(p, 1)
     fused = s[data_pack].fuse(c, p)
-    bb, tt = s[data_pack].split(fused, 16)
+    bb, tt = s[data_pack].split(fused, num_thread)
     s[data_pack].reorder(bb, tt, pi, eps, nu)
     s[data_pack].bind(bb, te.thread_axis("blockIdx.x"))
     s[data_pack].bind(tt, te.thread_axis("threadIdx.x"))
@@ -204,7 +211,7 @@ def schedule_winograd_cuda(cfg, s, output, pre_computed):
                 s[kernel_pack].unroll(axis)
 
             fused = s[kernel_pack].fuse(ci, co)
-            bb, tt = s[kernel_pack].split(fused, 16)
+            bb, tt = s[kernel_pack].split(fused, num_thread)
             s[kernel_pack].reorder(bb, tt, eps, nu, r_a, r_b)
             s[kernel_pack].bind(bb, te.thread_axis("blockIdx.x"))
             s[kernel_pack].bind(tt, te.thread_axis("threadIdx.x"))
