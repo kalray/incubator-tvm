@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 # pylint: disable=invalid-name
-"""The templates for cuda conv2d operators"""
+"""The templates for cuda and opencl conv2d operators"""
 import tvm
 from tvm import te
 from tvm import autotvm
