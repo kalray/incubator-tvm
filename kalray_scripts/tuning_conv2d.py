@@ -53,9 +53,9 @@ def get_network(name, batch_size):
 target = "opencl -device=kmppa -max_num_threads=16"
 
 #### TUNING OPTION ####
-network = 'resnet-50'
+network = 'squeezenet_v1.1'
 log_file = "%s.log" % network
-dtype = 'float32'
+dtype = 'float16'
 
 tuning_option = {
     'log_filename': log_file,
@@ -134,13 +134,7 @@ def tune_and_evaluate(tuning_opt):
         with tvm.transform.PassContext(opt_level=3):
             graph, lib, params = relay.build_module.build(
                 mod, target=target, params=params)
-        """
-        #FIXME: tempdir undifined
-        # export library
-        tmp = tempdir()
-        filename = "net.tar"
-        lib.export_library(tmp.relpath(filename))
-        """
+
         # load parameters
         ctx = tvm.context(str(target), 0)
         module = runtime.create(graph, lib, ctx)
