@@ -1,4 +1,6 @@
 """
+Script that exports all source code to files with different operator
+optimization levels
 
 Author: Aurélien POTIN
 """
@@ -40,8 +42,8 @@ for curr_opt in opt_to_generate:
     with tvm.transform.PassContext(opt_level=curr_opt):
         print("Optimizing and building target module...")
         graph, lib, params = relay.build(mod,
-                                    target=target,
-                                    params=params)
+                                         target=target,
+                                         params=params)
 
     print("---Writing Relay graph to JSON---")
     with open(directory_name + prefix + 'relay_graph.json', 'w') as export_file:

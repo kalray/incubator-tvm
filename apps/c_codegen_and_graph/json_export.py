@@ -1,8 +1,8 @@
 """
-Ce script permet de tester l'export du graphe de Relay en JSON
-ainsi que les parametres dans un fichier binaire.
+This script allows to test the export process of JSON Relay graph as well
+as the parameters in a binary file.
 
-Auteur: Aurelien POTIN
+Author: Aurélien POTIN
 """
 from pathlib import Path
 
@@ -19,7 +19,7 @@ image_shape = (3, 224, 224)
 data_shape = (batch_size,) + image_shape
 out_shape = (batch_size, num_class)
 
-# Obtention du reseau de neuronnes depuis les réseaux pre-traduits de Relay
+# Neural network generation from Relay pre-translated networks
 mod, params = relay.testing.squeezenet.get_workload(batch_size, image_shape=image_shape, version = '1.1', num_classes=num_class)
 
 target='c'
@@ -33,10 +33,10 @@ with tvm.transform.PassContext(opt_level=0):
 
 print("---Writing Relay graph to JSON---")
 with open(directory_name + 'relay_graph.json', 'w') as export_file:
-        export_file.write(graph)
+    export_file.write(graph)
 print("Done")
 
 print("---Writing params---")
 with open(directory_name + 'params.bin', 'wb') as export_file:
-	export_file.write(relay.save_param_dict(params))
+    export_file.write(relay.save_param_dict(params))
 print("Done")

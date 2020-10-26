@@ -28,23 +28,23 @@ target = 'c'
 with tvm.transform.PassContext(opt_level=0):
     print("Optimizing and building target module...")
     graph, lib, params = relay.build(mod,
-                                    target=target,
-                                    params=params)
+                                     target=target,
+                                     params=params)
 
 print("---Writing Relay graph to JSON---")
 with open(directory_name + 'relay_graph.json', 'w') as export_file:
-        export_file.write(graph)
+    export_file.write(graph)
 print("Done")
 
 print("---Writing params---")
 with open(directory_name + 'params.bin', 'wb') as export_file:
-        export_file.write(relay.save_param_dict(params))
+    export_file.write(relay.save_param_dict(params))
 print("Done")
 
 print("---Writing source files---")
 print("\tWriting host code")
 with open(directory_name + 'host_source', 'w') as source_file:
-        source_file.write(lib.get_source())
+    source_file.write(lib.get_source())
 print("\tWriting imported modules sources, number to do: ", len(lib.imported_modules))
 for i in range(len(lib.imported_modules)):
     with open(directory_name + "imported_source"+str(i), 'w') as source_file:
