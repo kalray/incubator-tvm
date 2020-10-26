@@ -17,6 +17,8 @@ from tvm.relay import testing
 import tvm
 from tvm import te
 from tvm.contrib import graph_runtime
+# save the graph, lib and params into separate files
+from tvm.contrib import util
 
 ######################################################################
 # Define Neural Network in Relay
@@ -67,7 +69,7 @@ mod, params = relay.testing.squeezenet.get_workload(version='1.1', batch_size=ba
 # Then the machine code will be generated as the module library.
 
 opt_level = 1
-target='opencl -max_num_threads=16 -device=kalray'
+target='opencl -device=kmppa -max_num_threads=16'
 with tvm.transform.PassContext(opt_level=opt_level):
     print("Creating graph")
     graph, lib, params = relay.build(mod,
@@ -90,10 +92,18 @@ print('Runtime created')
 module.set_input("data", data)
 module.set_input(**params)
 
-print("Obtention des sources: nombre de fichiers = ", len(lib.imported_modules))
+
+print("Get Host LLVM IR code")
+with open("host-code.cl", 'w') as hostfile:
+    hostfile.write(lib.get_source())
+
+print("Get OpenCL source code, number of files = ", len(lib.imported_modules))
 for i in range(len(lib.imported_modules)):
-    with open("fichier"+str(i), 'w') as fichier:
-        fichier.write(lib.imported_modules[i].get_source())
+    with open("file"+str(i)+".cl", 'w') as openclfile:
+        openclfile.write(lib.imported_modules[i].get_source())
+
+lib.export_library("deploy_lib.tar")
+print("Finished saving")
 
 # run
 module.run()

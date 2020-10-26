@@ -33,6 +33,6 @@ time_f = loaded_mod.time_evaluator(loaded_mod.entry_name, ctx, number=1, repeat=
 
 args = [nd.empty(x[0], dtype=x[1], ctx=ctx) for x in loaded_args]
 args = [nd.array(x, ctx=ctx) for x in args]
-ctx.sync() #Unsure FIXME
+ctx.sync() # FIXME: Unsure if needed
 
 costs = time_f(*args).results
