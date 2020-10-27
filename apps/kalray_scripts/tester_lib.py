@@ -1,7 +1,7 @@
 """
-Author: Aurélien Potin
-
 This script evaluates a TVM library.
+
+Author: Aurélien Potin
 """
 # parser
 import argparse

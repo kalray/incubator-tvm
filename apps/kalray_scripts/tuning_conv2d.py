@@ -1,5 +1,7 @@
 """
-Tuning script
+Tuning script to generate autotuning logs for the MPPA platform
+
+Author: Aurélien Potin
 """
 import os
 import numpy as np

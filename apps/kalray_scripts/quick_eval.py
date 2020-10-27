@@ -73,9 +73,9 @@ target='opencl -device=kmppa -max_num_threads=16'
 with tvm.transform.PassContext(opt_level=opt_level):
     print("Creating graph")
     graph, lib, params = relay.build(mod,
-                                    target=target,
-                                    #target_host='llvm -mtriple=x86_64-unknown-linux',
-                                    params=params)
+                                     target=target,
+                                     #target_host='llvm -mtriple=x86_64-unknown-linux',
+                                     params=params)
 #####################################################################
 # Run the generate library
 # ------------------------
@@ -94,7 +94,7 @@ module.set_input(**params)
 
 
 print("Get Host LLVM IR code")
-with open("host-code.cl", 'w') as hostfile:
+with open("host-code.ll", 'w') as hostfile:
     hostfile.write(lib.get_source())
 
 print("Get OpenCL source code, number of files = ", len(lib.imported_modules))
@@ -106,15 +106,14 @@ lib.export_library("deploy_lib.tar")
 print("Finished saving")
 
 # run
+print("Run started")
 module.run()
 print("Run finished")
 
 #Uncomment the next block of code to evaluate the execution time
-"""
 # evaluate
 print("Evaluate inference time cost...")
 ftimer = module.module.time_evaluator("run", ctx, number=20, repeat=2)
 prof_res = np.array(ftimer().results) * 1000  # convert to millisecond
 print("Mean inference time (std dev): %.2f ms (%.2f ms)" %
-     (np.mean(prof_res), np.std(prof_res)))
-"""
+      (np.mean(prof_res), np.std(prof_res)))
