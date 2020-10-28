@@ -192,7 +192,6 @@ class LLVMModuleNode final : public runtime::ModuleNode {
   void Init(const IRModule& mod, const Target& target) {
     InitializeLLVM();
     tm_ = GetLLVMTargetMachine(target);
-    std::cerr << "LLVM target: " + target + "\n Target triple: "+tm_->getTargetTriple().str()+"\n";
     bool system_lib = target->GetAttr<Bool>("system-lib").value_or(Bool(false));
     bool target_c_runtime = (target->GetAttr<String>("runtime").value_or("") == kTvmRuntimeCrt);
     ctx_ = std::make_shared<llvm::LLVMContext>();
